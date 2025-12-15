@@ -19,10 +19,13 @@ typedef struct {
     u64 chunk_size;
     void *buffers[3];
     MemoryPool pools[3];
-    u64 memory_usage[3];
 
     int backing_fd;
     void *cxl_scratch;
+
+    u32 *cxl_usage;
+    u64 memory_usage[3];
+    bool *borrowed[3];
 } TieredAllocator;
 
 typedef u64 Ptr;
@@ -34,9 +37,18 @@ void ta_deinit(TieredAllocator *ta);
 
 Ptr ta_create(TieredAllocator *ta, MemoryTier tier);
 void ta_destroy(TieredAllocator *ta, Ptr ptr);
+Ptr ta_migrate(TieredAllocator *ta, Ptr ptr, MemoryTier tier);
 
 void *ta_acquire(TieredAllocator *ta, Ptr ptr);
-const void *ta_peek(TieredAllocator *ta, Ptr ptr);
 void ta_flush(TieredAllocator *ta, Ptr ptr);
+void *ta_acquire_raw(TieredAllocator *ta, Ptr ptr);
+
+bool ta_ptr_valid(TieredAllocator *ta, Ptr ptr);
+
+MemoryTier get_tier(Ptr ptr);
+Ptr null_ptr();
+bool is_null_ptr(Ptr ptr);
+
+u64 chunk_bound(u64 chunk_size);
 
 #endif // MEMORY_H_

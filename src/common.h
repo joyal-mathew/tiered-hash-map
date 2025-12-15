@@ -27,4 +27,6 @@ typedef int8_t i8;
         }                                                                      \
     } while (0)
 
+u64 align_u64(u64 x);
+
 #endif // COMMON_H_
