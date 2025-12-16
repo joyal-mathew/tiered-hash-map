@@ -21,6 +21,30 @@ and memory usage.
 
 = Literature Review
 
+In a _TMO: Transparent Memory Offloading in Datacenters_, Johannes Weiner et al.
+investigated techniques for transparently offloading memory in heterogeneous
+hierarchies at a kernel level @tmo. They build a system called TMO that can
+dynamically determine the ideal amount of memory to offload based on workload
+and hardware characteristics. They also implemented efficient kernel routines to
+actually offload memory to different hardware devices. Their placement policy
+used stall pressure to dynamically determine which memory needs to be in RAM.
+This allows the system to quickly respond to a volatile program. Stall pressure
+is a good metric when working at the OS level where very few assumptions can be
+made about memory usage. However, when constructing a tier-aware data structure,
+still pressure is too slow an indicator. When threads are stalling on memory
+access, the problem is already there. Using specific information about the data
+structure being implemented can allow for even more responsive placement
+policies.
+
+In _BzTree: A High-Performance Latch-free Range Index for Non-Volatile Memory_,
+Joy Arulraj et al. introduce BzTree, a lock-free B-tree implementation for NVM
+@bz. To achieve this, they rely on persistent multi-word compare-and-swap
+operations. The idea is to use tracked descriptors when performing atomic NVM
+operations. This allows for things like setting a dirty bit so that other
+threads know to flush prior to reading. This concept could certainly be useful
+in its application to CXL compressed memory which is similar to NVM in being
+slow.
+
 = Implementation
 
 == Memory Simulation
@@ -128,7 +152,7 @@ overhead, an LRU cache, this implementation will use the SIEVE algorithm @sieve.
 
 == Memory Simulation
 
-The memory tiers were evaluted as implemented to analyze latency and found to
+The memory tiers were evaluated as implemented to analyze latency and found to
 approximate the memory hierarchy of RAM #sym.arrow CXL #sym.arrow SSD.
 
 #figure(caption: "Memory system performance", table(
@@ -153,6 +177,7 @@ usage. The tiered hash map pre-allocates buckets and has a pre-determined number
 of buckets to be used as RAM (RAM capacity). Allocating more buckets to RAM
 should results in higher throughput but also higher memory usage.
 
+#pagebreak()
 #columns(2)[
     #figure(caption: "Throughput vs % RAM @ 300% load", image("plots/placement_4000.svg"))
     #colbreak()
@@ -169,6 +194,7 @@ As expected, allocating more buckets to RAM results in higher throughput. In
 fact, the throughput seemingly increases exponentially and hits a cap when RAM
 can store every element. Now we can look at memory usage.
 
+#pagebreak()
 #columns(2)[
     #figure(caption: "Throughput vs % RAM @ 300% load", image("plots/placement_mem_4000.svg"))
     #colbreak()
