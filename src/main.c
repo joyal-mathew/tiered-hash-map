@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -70,11 +71,10 @@ char *read_file(const char *path) {
 
 #define NEXT_ARG(arr, n) (n == 0 ? abort() : 0, n--, *arr++)
 
-int main(int argc, char **argv) {
+void placement(int argc, char **argv) {
     TieredAllocator ta;
     ta_init(&ta, 256, 1 << 16);
 
-    NEXT_ARG(argv, argc);
     int buckets = atoi(NEXT_ARG(argv, argc));
     int ram_bucket_percent = atoi(NEXT_ARG(argv, argc));
     int ram_buckets = buckets * ram_bucket_percent / 100;
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
 
     double throughput = (double) bytes_in / (double) elapsed;
     printf(
-        "%d %f %f\n", ram_buckets, throughput * NS_PER_SEC / B_PER_MIB,
+        "%d %f %f\n", ram_bucket_percent, throughput * NS_PER_SEC / B_PER_MIB,
         (double) hash_map_mem_usage(&counter) / B_PER_MIB
     );
 
@@ -102,4 +102,53 @@ int main(int argc, char **argv) {
     free(text);
     hash_map_deinit(&counter);
     ta_deinit(&ta);
+}
+
+void memory(int argc, char **argv) {
+    TieredAllocator ta;
+    ta_init(&ta, 256, 1 << 16);
+
+    Timer timer;
+
+    int iters = atoi(NEXT_ARG(argv, argc));
+
+    for (int t = 0; t < NUM_TIERS; ++t) {
+        Ptr *ptrs = malloc(iters * sizeof(*ptrs));
+        for (int i = 0; i < iters; ++i)
+            ptrs[i] = ta_create(&ta, t);
+
+        printf("%s READ |", TIER_STRS[t]);
+        for (int i = 0; i < iters; ++i) {
+            timer_start(&timer);
+            ta_acquire(&ta, ptrs[i]);
+            u64 elapsed = timer_elapsed(&timer);
+            printf(" %lu ", elapsed);
+        }
+        printf("\n");
+
+        printf("%s WRITE |", TIER_STRS[t]);
+        for (int i = 0; i < iters; ++i) {
+            timer_start(&timer);
+            ta_flush(&ta, ptrs[i]);
+            u64 elapsed = timer_elapsed(&timer);
+            printf(" %lu", elapsed);
+        }
+        printf("\n");
+
+        for (int i = 0; i < iters; ++i)
+            ta_destroy(&ta, ptrs[i]);
+        free(ptrs);
+    }
+
+    ta_deinit(&ta);
+}
+
+int main(int argc, char **argv) {
+    NEXT_ARG(argv, argc);
+    char *cmd = NEXT_ARG(argv, argc);
+
+    if (strcmp(cmd, "placement") == 0)
+        placement(argc, argv);
+    else if (strcmp(cmd, "memory") == 0)
+        memory(argc, argv);
 }
